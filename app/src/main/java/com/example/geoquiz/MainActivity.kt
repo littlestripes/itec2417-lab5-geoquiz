@@ -1,6 +1,8 @@
 package com.example.geoquiz
 
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
@@ -9,7 +11,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.ViewModelProvider
 import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private const val TAG = "MainActivity"
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,19 +25,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prevButton: ImageButton
     private lateinit var questionTextView: TextView
 
-    private val questionBank = listOf(
-        Question(R.string.question_australia, true),
-        Question(R.string.question_oceans, true),
-        Question(R.string.question_mideast, false),
-        Question(R.string.question_africa, false),
-        Question(R.string.question_americas, true),
-        Question(R.string.question_asia, true)
-    )
+    private var score = 0
 
-    private var currentIndex = 0
+    private val quizViewModel: QuizViewModel by lazy {
+        ViewModelProvider(this).get(QuizViewModel::class.java)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate(Bundle?) called")
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
@@ -48,51 +50,83 @@ class MainActivity : AppCompatActivity() {
         questionTextView = findViewById(R.id.question_text_view)
 
         trueButton.setOnClickListener {
+            trueButton.visibility = View.INVISIBLE
+            falseButton.visibility = View.INVISIBLE
             checkAnswer(true)
         }
 
         falseButton.setOnClickListener {
+            trueButton.visibility = View.INVISIBLE
+            falseButton.visibility = View.INVISIBLE
             checkAnswer(false)
         }
 
         nextButton.setOnClickListener {
-            nextQuestion()
+            quizViewModel.moveToNext()
+            updateQuestion()
         }
 
         prevButton.setOnClickListener {
-            prevQuestion()
+            quizViewModel.moveToPrev()
+            updateQuestion()
         }
 
         questionTextView.setOnClickListener {
-            nextQuestion()
+            quizViewModel.moveToNext()
+            updateQuestion()
         }
 
         updateQuestion()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d(TAG, "onStart() called")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume() called")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause() called")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop() called")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy() called")
     }
 
     private fun updateQuestion() {
         // updates the TextView to display the new question at currentIndex
-        // note: uses abs to ensure functionality when currentIndex is negative
-        val questionTextResId = questionBank[abs(currentIndex)].textResId
-        questionTextView.setText(questionTextResId)
-    }
+        // also changes visibility of answer buttons based on whether or not the question has been
+        // answered yet
+        if (quizViewModel.isCurrentQuestionAnswered()) {
+            trueButton.visibility = View.INVISIBLE
+            falseButton.visibility = View.INVISIBLE
+        } else {
+            trueButton.visibility = View.VISIBLE
+            falseButton.visibility = View.VISIBLE
+        }
 
-    private fun nextQuestion() {
-        // increments currentIndex and updates the view
-        currentIndex = (currentIndex + 1) % questionBank.size
-        updateQuestion()
-    }
-
-    private fun prevQuestion() {
-        // decrements currentIndex and updates the view
-        currentIndex = (currentIndex - 1) % questionBank.size
-        updateQuestion()
+        questionTextView.setText(quizViewModel.currentQuestionText)
     }
 
     private fun checkAnswer(userAnswer: Boolean) {
         // checks if the user's answer was correct, displays Toast to indicate correctness
         // note: uses abs to ensure functionality when currentIndex is negative
-        val correctAnswer = questionBank[abs(currentIndex)].answer
+        val correctAnswer = quizViewModel.currentQuestionAnswer
+
+        if (userAnswer == correctAnswer) {
+            ++score
+        }
 
         val messageResId = if (userAnswer == correctAnswer) {
             R.string.correct_toast
@@ -102,5 +136,15 @@ class MainActivity : AppCompatActivity() {
 
         Toast.makeText(this, messageResId, Toast.LENGTH_SHORT)
             .show()
+
+        // add the current question to the answered questions bank
+        quizViewModel.markCurrentQuestionAnswered()
+
+        if (quizViewModel.answeredQuestionCount == quizViewModel.questionCount) {
+            // cast score as a Double for division to work correctly (no integer division)
+            val scorePercentage = (score.toDouble() / quizViewModel.questionCount) * 100
+            Toast.makeText(this, "You got ${scorePercentage.roundToInt()}%. Nice! Maybe.", Toast.LENGTH_LONG)
+                .show()
+        }
     }
 }
