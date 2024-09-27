@@ -1,7 +1,5 @@
 package com.example.geoquiz
 
-import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import kotlin.math.abs
 
@@ -10,6 +8,7 @@ private const val TAG = "QuizViewModel"
 class QuizViewModel : ViewModel() {
 
     private var currentIndex = 0
+    var isCheater = false
 
     private val questionBank = listOf(
         Question(R.string.question_australia, true),
